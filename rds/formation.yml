@@ -136,28 +136,6 @@ Resources:
               - DatabaseSubnetGroup
         - Key: CostTag
           Value: !Ref AWS::StackName
-  dbSubnetGroup:
-    Type: AWS::RDS::DBSubnetGroup
-    Properties:
-      DBSubnetGroupDescription: !Join
-        - ' '
-        - - !Ref AWS::StackName
-          - database subnet group
-      SubnetIds:
-        Fn::Split:
-          - ','
-          - Fn::ImportValue: !Join
-            - ':'
-            - - !Ref vpcStackName
-              - privateSubnets
-      Tags:
-        - Key: Name
-          Value: !Join
-            - '-'
-            - - !Ref AWS::StackName
-              - DatabaseSubnetGroup
-        - Key: CostTag
-          Value: !Ref AWS::StackName
   rdsProxySecGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -379,3 +357,19 @@ Outputs:
         - ':'
         - - !Ref AWS::StackName
           - secretArn
+  rdsProxySecGroupName:
+    Description: RDS proxy security group name
+    Value: !Ref rdsProxySecGroup
+    Export:
+      Name: !Join
+        - ':'
+        - - !Ref AWS::StackName
+          - rdsProxySecGroupName
+  dbSecGroupName:
+    Description: Cluster security group name
+    Value: !Ref dbSecGroup
+    Export:
+      Name: !Join
+        - ':'
+        - - !Ref AWS::StackName
+          - dbSecGroupName
