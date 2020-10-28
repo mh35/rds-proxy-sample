@@ -1,0 +1,381 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: RDS template
+Metadata:
+    AWS::CloudFormation::Interface:
+      ParameterGroups:
+        -
+          Label:
+            default: Common settings
+          Parameters:
+            - vpcStackName
+        -
+          Label:
+            default: DB engine settings
+          Parameters:
+            - dbInstanceType
+            - dbTimezone
+            - dbCharset
+            - dbName
+            - dbUsername
+Parameters:
+  vpcStackName:
+    Type: String
+    Description: VPC stack name
+  dbInstanceType:
+    Type: String
+    Description: Database instance type
+    AllowedValues:
+      - db.t2.micro
+      - db.t2.small
+      - db.t2.medium
+      - db.t2.large
+      - db.t2.xlarge
+      - db.t2.2xlarge
+      - db.t3.micro
+      - db.t3.small
+      - db.t3.medium
+      - db.t3.large
+      - db.t3.xlarge
+      - db.t3.2xlarge
+      - db.m4.large
+      - db.m4.xlarge
+      - db.m4.2xlarge
+      - db.m4.4xlarge
+      - db.m4.10xlarge
+      - db.m4.16xlarge
+      - db.m5.large
+      - db.m5.xlarge
+      - db.m5.2xlarge
+      - db.m5.4xlarge
+      - db.m5.8xlarge
+      - db.m5.12xlarge
+      - db.m5.16xlarge
+      - db.m5.24xlarge
+      - db.m6g.large
+      - db.m6g.xlarge
+      - db.m6g.2xlarge
+      - db.m6g.8xlarge
+      - db.m6g.12xlarge
+      - db.m6g.16xlarge
+      - db.r4.large
+      - db.r4.xlarge
+      - db.r4.2xlarge
+      - db.r4.4xlarge
+      - db.r4.8xlarge
+      - db.r4.16xlarge
+      - db.r5.large
+      - db.r5.xlarge
+      - db.r5.2xlarge
+      - db.r5.4xlarge
+      - db.r5.8xlarge
+      - db.r5.12xlarge
+      - db.r5.16xlarge
+      - db.r5.24xlarge
+      - db.r6g.large
+      - db.r6g.xlarge
+      - db.r6g.2xlarge
+      - db.r6g.4xlarge
+      - db.r6g.8xlarge
+      - db.r6g.12xlarge
+      - db.r6g.16xlarge
+    Default: db.t3.medium
+  dbTimezone:
+    Type: String
+    Description: Database timezone
+    Default: Asia/Tokyo
+  dbCharset:
+    Type: String
+    Description: Database character set
+    Default: utf8mb4
+  dbName:
+    Type: String
+    Description: Database name
+  dbUsername:
+    Type: String
+    Description: Database username
+Resources:
+  auroraSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      GenerateSecretString:
+        GenerateStringKey: password
+        PasswordLength: 16
+        SecretStringTemplate: !Join
+          - ''
+          - - '{"username":"'
+            - !Ref dbUsername
+            - '"}'
+        ExcludeCharacters: "\"@/\\"
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '-'
+            - - !Ref AWS::StackName
+              - AuroraSecret
+        - Key: CostTag
+          Value: !Ref AWS::StackName
+  dbSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: !Join
+        - ' '
+        - - !Ref AWS::StackName
+          - database subnet group
+      SubnetIds:
+        Fn::Split:
+          - ','
+          - Fn::ImportValue: !Join
+            - ':'
+            - - !Ref vpcStackName
+              - privateSubnets
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '-'
+            - - !Ref AWS::StackName
+              - DatabaseSubnetGroup
+        - Key: CostTag
+          Value: !Ref AWS::StackName
+  dbSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: !Join
+        - ' '
+        - - !Ref AWS::StackName
+          - database subnet group
+      SubnetIds:
+        Fn::Split:
+          - ','
+          - Fn::ImportValue: !Join
+            - ':'
+            - - !Ref vpcStackName
+              - privateSubnets
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '-'
+            - - !Ref AWS::StackName
+              - DatabaseSubnetGroup
+        - Key: CostTag
+          Value: !Ref AWS::StackName
+  rdsProxySecGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: RDS proxy security group
+      # アプリからのIngressは別スタックで定義
+      VpcId:
+        Fn::ImportValue: !Join
+          - ':'
+          - - !Ref vpcStackName
+            - vpcId
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '-'
+            - - !Ref AWS::StackName
+              - RDSProxySecurityGroup
+        - Key: CostTag
+          Value: !Ref AWS::StackName
+  dbSecGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Database security group
+      VpcId:
+        Fn::ImportValue: !Join
+          - ':'
+          - - !Ref vpcStackName
+            - vpcId
+      SecurityGroupIngress:
+        # アプリからのIngressは別スタックで定義
+        -
+          SourceSecurityGroupId: !Ref rdsProxySecGroup
+          Description: RDS Proxy connection
+          IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '-'
+            - - !Ref AWS::StackName
+              - DBSecurityGroup
+        - Key: CostTag
+          Value: !Ref AWS::StackName
+  dbClusterParamGroup:
+    Type: AWS::RDS::DBClusterParameterGroup
+    Properties:
+      Description: Aurora cluster parameter group
+      Family: aurora-mysql5.7
+      Parameters:
+        character_set_server: !Ref dbCharset
+        time_zone: !Ref dbTimezone
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '-'
+            - - !Ref AWS::StackName
+              - DBClusterParameterGroup
+        - Key: CostTag
+          Value: !Ref AWS::StackName
+  dbParamGroup:
+    Type: AWS::RDS::DBParameterGroup
+    Properties:
+      Description: RDS parameter group
+      Family: aurora-mysql5.7
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '-'
+            - - !Ref AWS::StackName
+              - DBParameterGroup
+        - Key: CostTag
+          Value: !Ref AWS::StackName
+  dbCluster:
+    Type: AWS::RDS::DBCluster
+    Properties:
+      BackupRetentionPeriod: 7
+      DatabaseName: !Ref dbName
+      DBClusterParameterGroupName: !Ref dbClusterParamGroup
+      DBSubnetGroupName: !Ref dbSubnetGroup
+      Engine: aurora-mysql
+      EngineMode: provisioned
+      MasterUsername: !Ref dbUsername
+      MasterUserPassword: !Join
+        - ''
+        - - '{{resolve:secretsmanager:'
+          - !Ref auroraSecret
+          - ':SecretString:password::}}'
+      DBSubnetGroupName: !Ref dbSubnetGroup
+      VpcSecurityGroupIds:
+        - !Ref dbSecGroup
+  dbInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceClass: !Ref dbInstanceType
+      Engine: aurora-mysql
+      DBParameterGroupName: !Ref dbParamGroup
+      DBSubnetGroupName: !Ref dbSubnetGroup
+      PubliclyAccessible: false
+      DBClusterIdentifier: !Ref dbCluster
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '-'
+            - - !Ref AWS::StackName
+              - DBInstance
+        - Key: CostTag
+          Value: !Ref AWS::StackName
+  subDbInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceClass: !Ref dbInstanceType
+      Engine: aurora-mysql
+      DBParameterGroupName: !Ref dbParamGroup
+      DBSubnetGroupName: !Ref dbSubnetGroup
+      PubliclyAccessible: false
+      DBClusterIdentifier: !Ref dbCluster
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '-'
+            - - !Ref AWS::StackName
+              - SubDBInstance
+        - Key: CostTag
+          Value: !Ref AWS::StackName
+  dbSecretAttachment:
+    Type: AWS::SecretsManager::SecretTargetAttachment
+    Properties:
+      SecretId: !Ref auroraSecret
+      TargetId: !Ref dbCluster
+      TargetType: AWS::RDS::DBCluster
+  rdsProxyRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: rds.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: AllowGetSecretValue
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: 
+                  - secretsmanager:GetSecretValue
+                  - secretsmanager:DescribeSecret
+                Resource: !Ref dbSecretAttachment
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '-'
+            - - !Ref AWS::StackName
+              - RDSProxyRole
+        - Key: CostTag
+          Value: !Ref AWS::StackName
+  rdsProxy:
+    Type: AWS::RDS::DBProxy
+    Properties:
+      DBProxyName: !Join
+        - '-'
+        - - !Ref AWS::StackName
+          - rdsProxy
+      EngineFamily: MYSQL
+      RoleArn: !GetAtt rdsProxyRole.Arn
+      Auth:
+        - AuthScheme: SECRETS
+          SecretArn: !Ref dbSecretAttachment
+          IAMAuth: DISABLED
+      VpcSecurityGroupIds:
+        - !Ref rdsProxySecGroup
+      VpcSubnetIds:
+        Fn::Split:
+          - ','
+          - Fn::ImportValue: !Join
+            - ':'
+            - - !Ref vpcStackName
+              - privateSubnets
+  rdsProxyTargetGroup:
+    Type: AWS::RDS::DBProxyTargetGroup
+    Properties:
+      DBProxyName: !Ref rdsProxy
+      DBClusterIdentifiers:
+        - !Ref dbCluster
+      TargetGroupName: default
+    DependsOn: dbInstance
+Outputs:
+  rdsProxyEndpoint:
+    Description: RDS proxy endpoint
+    Value: !GetAtt rdsProxy.Endpoint
+    Export:
+      Name: !Join
+        - ':'
+        - - !Ref AWS::StackName
+          - rdsProxyEndpoint
+  clusterMasterEndpoint:
+    Description: Aurora cluster master endpoint
+    Value: !GetAtt dbCluster.Endpoint.Address
+    Export:
+      Name: !Join
+        - ':'
+        - - !Ref AWS::StackName
+          - clusterMasterEndpoint
+  clusterReadEndpoint:
+    Description: Aurora cluster master endpoint
+    Value: !GetAtt dbCluster.ReadEndpoint.Address
+    Export:
+      Name: !Join
+        - ':'
+        - - !Ref AWS::StackName
+          - clusterReadEndpoint
+  secretArn:
+    Description: Security manager secret ARN
+    Value: !Ref auroraSecret
+    Export:
+      Name: !Join
+        - ':'
+        - - !Ref AWS::StackName
+          - secretArn
