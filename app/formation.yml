@@ -1,0 +1,35 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: RDS template
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      -
+        Label:
+          default: Common settings
+        Parameters:
+          - vpcStackName
+          - rdsStackName
+Parameters:
+  vpcStackName:
+    Type: String
+    Description: VPC stack name
+  rdsStackName:
+    Type: String
+    Description: RDS stack name
+Transform: AWS::Serverless-2016-10-31
+Resources:
+  apiGateway:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Description: Sample database API
+      Name: SampleDatabaseAPI
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '-'
+            - - !Ref AWS::StackName
+              - ApiGateway
+        - Key: CostTag
+          Value: !Ref AWS::StackName
+  initTables:
+    Type: AWS::Serverless::Function
