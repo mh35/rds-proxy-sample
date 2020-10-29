@@ -323,7 +323,9 @@ Resources:
       DBClusterIdentifiers:
         - !Ref dbCluster
       TargetGroupName: default
-    DependsOn: dbInstance
+    DependsOn:
+      - dbInstance
+      - subDbInstance
 Outputs:
   rdsProxyEndpoint:
     Description: RDS proxy endpoint
